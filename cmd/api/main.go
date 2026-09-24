@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/guerreirodafronteira/guerreiro-api-negocio/docs"
 	"github.com/jackc/pgx/v5/pgxpool"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/business"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/config"
@@ -22,6 +24,11 @@ type checkResult struct {
 	Err  error
 }
 
+// @title Guerreiro da Fronteira - API
+// @version 1.0
+// @description API de negócio: pagamentos, pedidos e consultoria
+// @host localhost:8080
+// @BasePath /
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -42,6 +49,11 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler(pool))
 	mux.Handle("/checkout", checkoutHandler) // repara: Handle (não HandleFunc), porque checkoutHandler já é um http.Handler
+
+	if cfg.AppEnv == "development" {
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
+	log.Println("Swagger disponível em /swagger/index.html")
+}
 
 	log.Printf("servidor rodando na porta %s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {

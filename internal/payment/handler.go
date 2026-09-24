@@ -31,6 +31,17 @@ type checkoutResponse struct {
 // ServeHTTP faz o CheckoutHandler satisfazer a interface http.Handler sozinho —
 // diferente do healthHandler (que precisava de http.HandlerFunc explícito),
 // qualquer struct com esse método já PODE ser registrada direto no mux.
+// ServeHTTP cria uma sessão de pagamento na Stripe para o serviço escolhido.
+// @Summary      Cria checkout de pagamento
+// @Description  Recebe o número de WhatsApp e o serviço escolhido, cria o pedido e retorna a URL de pagamento da Stripe
+// @Tags         payment
+// @Accept       json
+// @Produce      json
+// @Param        request body checkoutRequest true "Dados do checkout"
+// @Success      200 {object} checkoutResponse
+// @Failure      400 {string} string "requisição inválida"
+// @Failure      500 {string} string "erro interno"
+// @Router       /checkout [post]
 func (h *CheckoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "método não permitido", http.StatusMethodNotAllowed)

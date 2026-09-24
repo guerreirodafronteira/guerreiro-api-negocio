@@ -1,0 +1,53 @@
+basePath: /
+definitions:
+  payment.checkoutRequest:
+    properties:
+      service_slug:
+        type: string
+      whatsapp_number:
+        type: string
+    type: object
+  payment.checkoutResponse:
+    properties:
+      checkout_url:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 'API de negócio: pagamentos, pedidos e consultoria'
+  title: Guerreiro da Fronteira - API
+  version: "1.0"
+paths:
+  /checkout:
+    post:
+      consumes:
+      - application/json
+      description: Recebe o número de WhatsApp e o serviço escolhido, cria o pedido
+        e retorna a URL de pagamento da Stripe
+      parameters:
+      - description: Dados do checkout
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payment.checkoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.checkoutResponse'
+        "400":
+          description: requisição inválida
+          schema:
+            type: string
+        "500":
+          description: erro interno
+          schema:
+            type: string
+      summary: Cria checkout de pagamento
+      tags:
+      - payment
+swagger: "2.0"

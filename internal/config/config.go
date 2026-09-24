@@ -13,10 +13,16 @@ type Config struct {
 	StripeSecretKey       string
 	StripePriceMigramovil string
 	StripePriceMigracion  string
+	AppEnv                string
 }
 
 func Load() (*Config, error) {
 	_ = godotenv.Load()
+
+	appEnv := os.Getenv("APP_ENV")
+	if appEnv == ""{
+		appEnv = "development"
+	}
 
 	cfg := &Config{
 		DatabaseURL:           os.Getenv("DATABASE_URL"),
@@ -24,6 +30,7 @@ func Load() (*Config, error) {
 		StripeSecretKey:       os.Getenv("STRIPE_SECRET_KEY"),
 		StripePriceMigramovil: os.Getenv("STRIPE_PRICE_MIGRAMOVIL"),
 		StripePriceMigracion:  os.Getenv("STRIPE_PRICE_MIGRACION"),
+		AppEnv: appEnv,
 	}
 
 	if cfg.DatabaseURL == "" {

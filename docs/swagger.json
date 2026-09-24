@@ -1,0 +1,80 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API de negócio: pagamentos, pedidos e consultoria",
+        "title": "Guerreiro da Fronteira - API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/checkout": {
+            "post": {
+                "description": "Recebe o número de WhatsApp e o serviço escolhido, cria o pedido e retorna a URL de pagamento da Stripe",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Cria checkout de pagamento",
+                "parameters": [
+                    {
+                        "description": "Dados do checkout",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/payment.checkoutRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.checkoutResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "requisição inválida",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "erro interno",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "payment.checkoutRequest": {
+            "type": "object",
+            "properties": {
+                "service_slug": {
+                    "type": "string"
+                },
+                "whatsapp_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "payment.checkoutResponse": {
+            "type": "object",
+            "properties": {
+                "checkout_url": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
