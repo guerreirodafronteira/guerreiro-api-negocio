@@ -50,4 +50,28 @@ paths:
       summary: Cria checkout de pagamento
       tags:
       - payment
+  /webhooks/stripe:
+    post:
+      consumes:
+      - application/json
+      description: 'Recebe eventos da Stripe (ex: checkout.session.completed) e atualiza
+        o pedido correspondente'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: assinatura inválida
+          schema:
+            type: string
+        "500":
+          description: erro interno
+          schema:
+            type: string
+      summary: Webhook da Stripe
+      tags:
+      - payment
 swagger: "2.0"

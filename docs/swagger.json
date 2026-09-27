@@ -54,6 +54,41 @@
                     }
                 }
             }
+        },
+        "/webhooks/stripe": {
+            "post": {
+                "description": "Recebe eventos da Stripe (ex: checkout.session.completed) e atualiza o pedido correspondente",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Webhook da Stripe",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "assinatura inválida",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "erro interno",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {

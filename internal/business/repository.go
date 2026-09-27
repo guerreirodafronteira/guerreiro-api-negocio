@@ -63,3 +63,11 @@ func (r *Repository) AttachStripeSession(ctx context.Context, orderID, sessionID
 	)
 	return err
 }
+
+func (r *Repository) MarkOrderAsPaid(ctx context.Context, orderID, paymentIntentID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE orders SET status = 'pago', stripe_payment_intent_id = $1, updated_at = now() WHERE id = $2`,
+		paymentIntentID, orderID,
+	)
+	return err
+}

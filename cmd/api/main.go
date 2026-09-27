@@ -45,10 +45,12 @@ func main() {
 	repo := business.NewRepository(pool)
 	stripeClient := payment.NewStripeClient(cfg.StripeSecretKey, cfg.StripePriceMigramovil, cfg.StripePriceMigracion)
 	checkoutHandler := payment.NewCheckoutHandler(repo, stripeClient)
+	webhookHandler := payment.NewWebhookHandler(repo, cfg.StripeWebhookSecret)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler(pool))
 	mux.Handle("/checkout", checkoutHandler) // repara: Handle (não HandleFunc), porque checkoutHandler já é um http.Handler
+	mux.Handle("/webhooks/stripe", webhookHandler)
 
 	if cfg.AppEnv == "development" {
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)

@@ -13,6 +13,7 @@ type Config struct {
 	StripeSecretKey       string
 	StripePriceMigramovil string
 	StripePriceMigracion  string
+    StripeWebhookSecret   string
 	AppEnv                string
 }
 
@@ -30,6 +31,7 @@ func Load() (*Config, error) {
 		StripeSecretKey:       os.Getenv("STRIPE_SECRET_KEY"),
 		StripePriceMigramovil: os.Getenv("STRIPE_PRICE_MIGRAMOVIL"),
 		StripePriceMigracion:  os.Getenv("STRIPE_PRICE_MIGRACION"),
+	    StripeWebhookSecret: 		   os.Getenv("STRIPE_WEBHOOK_SECRET"),
 		AppEnv: appEnv,
 	}
 
@@ -38,6 +40,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.StripeSecretKey == "" {
 		return nil, fmt.Errorf("variável de ambiente STRIPE_SECRET_KEY não definida")
+	}
+	if cfg.StripeWebhookSecret == "" { 
+		return nil, fmt.Errorf("variável de ambiente STRIPE_WEBHOOK_SECRET não definida")
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"
