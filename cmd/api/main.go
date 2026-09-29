@@ -15,6 +15,7 @@ import (
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/business"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/config"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/db"
+	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/notify"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/payment"
 )
 
@@ -45,7 +46,9 @@ func main() {
 	repo := business.NewRepository(pool)
 	stripeClient := payment.NewStripeClient(cfg.StripeSecretKey, cfg.StripePriceMigramovil, cfg.StripePriceMigracion)
 	checkoutHandler := payment.NewCheckoutHandler(repo, stripeClient)
-	webhookHandler := payment.NewWebhookHandler(repo, cfg.StripeWebhookSecret)
+	emailClient := notify.NewResendClient(cfg.ResendAPIKey, cfg.ResendFromEmail)
+	whatsappNotifier := notify.NewWhatsAppNotifier()
+	webhookHandler := payment.NewWebhookHandler(repo, cfg.StripeWebhookSecret, emailClient, whatsappNotifier)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler(pool))

@@ -14,6 +14,8 @@ type Config struct {
 	StripePriceMigramovil string
 	StripePriceMigracion  string
     StripeWebhookSecret   string
+	ResendAPIKey   		  string
+	ResendFromEmail       string
 	AppEnv                string
 }
 
@@ -31,7 +33,9 @@ func Load() (*Config, error) {
 		StripeSecretKey:       os.Getenv("STRIPE_SECRET_KEY"),
 		StripePriceMigramovil: os.Getenv("STRIPE_PRICE_MIGRAMOVIL"),
 		StripePriceMigracion:  os.Getenv("STRIPE_PRICE_MIGRACION"),
-	    StripeWebhookSecret: 		   os.Getenv("STRIPE_WEBHOOK_SECRET"),
+        StripeWebhookSecret:   os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		ResendAPIKey:          os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail:       os.Getenv("RESEND_FROM_EMAIL"),
 		AppEnv: appEnv,
 	}
 

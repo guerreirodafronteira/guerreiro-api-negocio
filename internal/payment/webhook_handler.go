@@ -10,15 +10,18 @@ import (
 	"github.com/stripe/stripe-go/v82/webhook"
 
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/business"
+	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/notify"
 )
 
 type WebhookHandler struct {
 	repo          *business.Repository
 	webhookSecret string
+	emailClient   *notify.ResendClient
+	whatsapp      *notify.WhatsAppNotifier
 }
 
-func NewWebhookHandler(repo *business.Repository, webhookSecret string) *WebhookHandler {
-	return &WebhookHandler{repo: repo, webhookSecret: webhookSecret}
+func NewWebhookHandler(repo *business.Repository, webhookSecret string, emailClient *notify.ResendClient, whatsapp *notify.WhatsAppNotifier) *WebhookHandler {
+	return &WebhookHandler{repo: repo, webhookSecret: webhookSecret, emailClient: emailClient, whatsapp: whatsapp}
 }
 
 // ServeHTTP recebe e processa eventos de webhook da Stripe.
@@ -82,6 +85,33 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("pedido %s confirmado como pago", orderID)
+
+		email := ""
+		name := ""
+		if session.CustomerDetails != nil {
+			email = session.CustomerDetails.Email
+			name = session.CustomerDetails.Name
+		}
+
+		if email != "" || name != "" {
+			if err := h.repo.UpdateUserContactInfo(r.Context(), orderID, email, name); err != nil {
+				log.Printf("erro ao salvar dados do usuário: %v", err)
+			}
+		}
+
+		details, err := h.repo.GetOrderDetails(r.Context(), orderID)
+			if err != nil {
+				log.Printf("erro ao buscar detalhes do pedido: %v", err)
+		} else {
+			if details.Email != "" {
+				html := notify.BuildPurchaseEmailHTML(details.ServiceName)
+				if err := h.emailClient.SendEmail(details.Email, "Pagamento confirmado!", html); err != nil {
+					log.Printf("erro ao enviar email: %v", err)
+				}
+			}
+			msg := notify.BuildPurchaseWhatsAppMessage(details.ServiceName)
+			_ = h.whatsapp.SendMessage(details.WhatsAppNumber, msg) // stub, sempre retorna nil
+		}
 
 	default:
 		// Não tratamos esse tipo de evento ainda — só logamos e respondemos OK,
