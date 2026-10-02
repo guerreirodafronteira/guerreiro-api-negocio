@@ -13,6 +13,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/business"
+	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/business/calendar"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/config"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/db"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/notify"
@@ -49,11 +50,17 @@ func main() {
 	emailClient := notify.NewResendClient(cfg.ResendAPIKey, cfg.ResendFromEmail)
 	whatsappNotifier := notify.NewWhatsAppNotifier()
 	webhookHandler := payment.NewWebhookHandler(repo, cfg.StripeWebhookSecret, emailClient, whatsappNotifier)
+	calcomClient := calendar.NewCalcomClient(cfg.CalcomAPIKey, cfg.CalcomEventTypeID, cfg.CalcomTimezone)
+	calcomWebhookHandler := calendar.NewCalcomWebhookHandler(repo, cfg.CalcomWebhookSecret, cfg.CalcomOrganizerEmail)
+	consultationHandler := calendar.NewConsultationHandler(repo, calcomClient)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler(pool))
+	mux.HandleFunc("/consultoria/horarios", consultationHandler.GetAvailableSlots)
+	mux.HandleFunc("/consultoria/agendar", consultationHandler.CreateBooking)
 	mux.Handle("/checkout", checkoutHandler) // repara: Handle (não HandleFunc), porque checkoutHandler já é um http.Handler
 	mux.Handle("/webhooks/stripe", webhookHandler)
+	mux.Handle("/webhooks/calcom", calcomWebhookHandler)
 
 	if cfg.AppEnv == "development" {
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)

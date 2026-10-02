@@ -1,5 +1,20 @@
 basePath: /
 definitions:
+  calendar.scheduleRequest:
+    properties:
+      order_id:
+        type: string
+      start_iso:
+        type: string
+    type: object
+  calendar.slotOption:
+    properties:
+      label:
+        description: 'ex: "06/10 13:00", pronto pra exibir no bot'
+        type: string
+      start_iso:
+        type: string
+    type: object
   payment.checkoutRequest:
     properties:
       service_slug:
@@ -50,6 +65,51 @@ paths:
       summary: Cria checkout de pagamento
       tags:
       - payment
+  /consultoria/agendar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Dados do agendamento
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/calendar.scheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Confirma o agendamento da consultoria
+      tags:
+      - consultation
+  /consultoria/horarios:
+    get:
+      parameters:
+      - description: ID do pedido
+        in: query
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/calendar.slotOption'
+              type: array
+            type: object
+      summary: Lista horários livres para consultoria
+      tags:
+      - consultation
   /webhooks/stripe:
     post:
       consumes:

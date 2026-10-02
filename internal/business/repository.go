@@ -2,12 +2,18 @@ package business
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Repository struct {
 	pool *pgxpool.Pool
+}
+
+type ConsultationInfo struct {
+	OrderID         string
+	RescheduleCount int
 }
 
 type OrderDetails struct {
@@ -105,4 +111,60 @@ func (r *Repository) GetOrderDetails(ctx context.Context, orderID string) (*Orde
 		return nil, err
 	}
 	return &d, nil
+}
+
+func (r *Repository) CreateConsultation(ctx context.Context, orderID string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO consultations (order_id, status) VALUES ($1, 'aguardando_agendamento')`,
+		orderID,
+	)
+	return err
+}
+
+func (r *Repository) ConfirmConsultationBooking(ctx context.Context, orderID, externalBookingID string, scheduledAt time.Time) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE consultations
+		 SET status = 'agendado', external_booking_id = $1, scheduled_at = $2, updated_at = now()
+		 WHERE order_id = $3`,
+		externalBookingID, scheduledAt, orderID,
+	)
+	return err
+}
+
+func (r *Repository) GetConsultationByBookingUID(ctx context.Context, bookingUID string) (*ConsultationInfo, error) {
+	var c ConsultationInfo
+	err := r.pool.QueryRow(ctx,
+		`SELECT order_id, reschedule_count FROM consultations WHERE external_booking_id = $1`,
+		bookingUID,
+	).Scan(&c.OrderID, &c.RescheduleCount)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *Repository) UpdateConsultationStatus(ctx context.Context, bookingUID, status string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE consultations SET status = $1, updated_at = now() WHERE external_booking_id = $2`,
+		status, bookingUID,
+	)
+	return err
+}
+
+func (r *Repository) MarkNoShowAndIncrement(ctx context.Context, bookingUID, status string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE consultations
+		 SET status = $1, reschedule_count = reschedule_count + 1, updated_at = now()
+		 WHERE external_booking_id = $2`,
+		status, bookingUID,
+	)
+	return err
+}
+
+func (r *Repository) UpdateConsultationSchedule(ctx context.Context, bookingUID string, newTime time.Time) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE consultations SET scheduled_at = $1, status = 'agendado', updated_at = now() WHERE external_booking_id = $2`,
+		newTime, bookingUID,
+	)
+	return err
 }

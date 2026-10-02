@@ -113,6 +113,12 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_ = h.whatsapp.SendMessage(details.WhatsAppNumber, msg) // stub, sempre retorna nil
 		}
 
+		if details.ServiceSlug == "consultoria" {
+			if err := h.repo.CreateConsultation(r.Context(), orderID); err != nil {
+				log.Printf("erro ao criar consultoria: %v", err)
+			}
+		}
+
 	default:
 		// Não tratamos esse tipo de evento ainda — só logamos e respondemos OK,
 		// pra Stripe não ficar tentando reenviar o mesmo evento sem necessidade.

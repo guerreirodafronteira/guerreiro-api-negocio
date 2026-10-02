@@ -61,6 +61,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/consultoria/agendar": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "consultation"
+                ],
+                "summary": "Confirma o agendamento da consultoria",
+                "parameters": [
+                    {
+                        "description": "Dados do agendamento",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/calendar.scheduleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/consultoria/horarios": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "consultation"
+                ],
+                "summary": "Lista horários livres para consultoria",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do pedido",
+                        "name": "order_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/calendar.slotOption"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/webhooks/stripe": {
             "post": {
                 "description": "Recebe eventos da Stripe (ex: checkout.session.completed) e atualiza o pedido correspondente",
@@ -98,6 +168,29 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "calendar.scheduleRequest": {
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "string"
+                },
+                "start_iso": {
+                    "type": "string"
+                }
+            }
+        },
+        "calendar.slotOption": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "description": "ex: \"06/10 13:00\", pronto pra exibir no bot",
+                    "type": "string"
+                },
+                "start_iso": {
+                    "type": "string"
+                }
+            }
+        },
         "payment.checkoutRequest": {
             "type": "object",
             "properties": {

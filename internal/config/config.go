@@ -16,6 +16,11 @@ type Config struct {
     StripeWebhookSecret   string
 	ResendAPIKey   		  string
 	ResendFromEmail       string
+	CalcomAPIKey          string
+	CalcomEventTypeID     string
+	CalcomWebhookSecret   string
+	CalcomOrganizerEmail  string
+	CalcomTimezone        string
 	AppEnv                string
 }
 
@@ -36,6 +41,11 @@ func Load() (*Config, error) {
         StripeWebhookSecret:   os.Getenv("STRIPE_WEBHOOK_SECRET"),
 		ResendAPIKey:          os.Getenv("RESEND_API_KEY"),
 		ResendFromEmail:       os.Getenv("RESEND_FROM_EMAIL"),
+		CalcomAPIKey:          os.Getenv("CALCOM_API_KEY"),
+		CalcomEventTypeID:     os.Getenv("CALCOM_EVENT_TYPE_ID"),
+		CalcomWebhookSecret:   os.Getenv("CALCOM_WEBHOOK_SECRET"),
+		CalcomOrganizerEmail: os.Getenv("CALCOM_ORGANIZER_EMAIL"),
+		CalcomTimezone:        os.Getenv("CALCOM_TIMEZONE"),
 		AppEnv: appEnv,
 	}
 
@@ -47,6 +57,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.StripeWebhookSecret == "" { 
 		return nil, fmt.Errorf("variável de ambiente STRIPE_WEBHOOK_SECRET não definida")
+	}
+	if cfg.CalcomTimezone == "" {
+		cfg.CalcomTimezone = "America/Asuncion" // ajusta se o Guerreiro estiver em outro fuso
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"
