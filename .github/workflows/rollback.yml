@@ -1,0 +1,21 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão da API para reverter (ex: 1.0.3). Deixe em branco para não mexer."
+        required: false
+
+jobs:
+  rollback:
+    if: ${{ github.event.inputs.version != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy versão específica
+        run: flyctl deploy --image ghcr.io/${{ github.repository_owner }}/guerreiro-api-negocio:${{ github.event.inputs.version }} -a guerreiro-api-negocio
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
