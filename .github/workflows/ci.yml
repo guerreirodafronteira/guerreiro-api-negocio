@@ -22,7 +22,7 @@ jobs:
       - name: Bump version (+0.0.1)
         id: bump
         run: |
-          CURRENT=$(cat VERSION)
+          CURRENT=$(cat VERSION.txt)
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
           NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
           echo "$NEW_VERSION" > VERSION.txt
