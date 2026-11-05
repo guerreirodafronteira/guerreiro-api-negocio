@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'VERSION.txt' # evita loop infinito: o commit que ESSE workflow faz não deve disparar ele de novo
+      - 'infra/**'  
 
 permissions:
   contents: write
