@@ -46,6 +46,10 @@ func (h *ConsultationHandler) GetAvailableSlots(w http.ResponseWriter, r *http.R
 		http.Error(w, "esse pedido não é de consultoria", http.StatusBadRequest)
 		return
 	}
+	if details.Status != "pago" {
+	http.Error(w, "pagamento ainda não confirmado", http.StatusPaymentRequired)
+	return
+}
 
 	now := time.Now()
 	slots, err := h.calcom.GetAvailableSlots(now, now.AddDate(0, 0, 14))

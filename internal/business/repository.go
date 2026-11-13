@@ -22,6 +22,7 @@ type OrderDetails struct {
 	Email          string
 	ServiceSlug    string
 	ServiceName    string
+	Status string
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
@@ -106,7 +107,7 @@ func (r *Repository) GetOrderDetails(ctx context.Context, orderID string) (*Orde
 		 JOIN services s ON s.id = o.service_id
 		 WHERE o.id = $1`,
 		orderID,
-	).Scan(&d.UserID, &d.WhatsAppNumber, &d.Email, &d.ServiceSlug, &d.ServiceName)
+	).Scan(&d.UserID, &d.WhatsAppNumber, &d.Email, &d.ServiceSlug, &d.ServiceName, &d.Status)
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,7 @@ type checkoutRequest struct {
 
 type checkoutResponse struct {
 	CheckoutURL string `json:"checkout_url"`
+	OrderID     string `json:"order_id"`
 }
 
 // ServeHTTP faz o CheckoutHandler satisfazer a interface http.Handler sozinho —
@@ -103,5 +104,5 @@ func (h *CheckoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(checkoutResponse{CheckoutURL: session.URL})
+	json.NewEncoder(w).Encode(checkoutResponse{CheckoutURL: session.URL, OrderID: orderID})
 }
