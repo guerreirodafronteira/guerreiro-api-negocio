@@ -16,6 +16,7 @@ import (
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/business/calendar"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/config"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/db"
+	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/middleware"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/notify"
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/payment"
 )
@@ -45,8 +46,13 @@ func main() {
 	defer pool.Close()
 
 	repo := business.NewRepository(pool)
-	stripeClient := payment.NewStripeClient(cfg.StripeSecretKey, cfg.StripePriceMigramovil, cfg.StripePriceMigracion)
+	stripeClient := payment.NewStripeClient(cfg.StripeSecretKey, map[string]string{
+	"migramovil":  cfg.StripePriceMigramovil,
+	"migracion":   cfg.StripePriceMigracion,
+	"consultoria": cfg.StripePriceConsultoria,
+		})
 	checkoutHandler := payment.NewCheckoutHandler(repo, stripeClient)
+	orderStatusHandler := payment.NewOrderStatusHandler(repo)
 	emailClient := notify.NewResendClient(cfg.ResendAPIKey, cfg.ResendFromEmail)
 	whatsappNotifier := notify.NewWhatsAppNotifier()
 	webhookHandler := payment.NewWebhookHandler(repo, cfg.StripeWebhookSecret, emailClient, whatsappNotifier)
@@ -54,14 +60,20 @@ func main() {
 	calcomWebhookHandler := calendar.NewCalcomWebhookHandler(repo, cfg.CalcomWebhookSecret, cfg.CalcomOrganizerEmail)
 	consultationHandler := calendar.NewConsultationHandler(repo, calcomClient)
 
+	protect := func(h http.Handler) http.Handler {
+	return middleware.RequireAPIKey(cfg.InternalAPIKey, h)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler(pool))
-	mux.HandleFunc("/consultoria/horarios", consultationHandler.GetAvailableSlots)
-	mux.HandleFunc("/consultoria/agendar", consultationHandler.CreateBooking)
-	mux.Handle("/checkout", checkoutHandler) // repara: Handle (não HandleFunc), porque checkoutHandler já é um http.Handler
-	mux.Handle("/webhooks/stripe", webhookHandler)
-	mux.Handle("/webhooks/calcom", calcomWebhookHandler)
+	mux.Handle("/webhooks/stripe", webhookHandler)       // protegido pela assinatura da Stripe
+	mux.Handle("/webhooks/calcom", calcomWebhookHandler) // protegido pela assinatura do Cal.com
 
+	// Rotas chamadas pelo Typebot: exigem X-API-Key
+	mux.Handle("/checkout", protect(checkoutHandler))
+	mux.Handle("/pedidos/status", protect(orderStatusHandler))
+	mux.Handle("/consultoria/horarios", protect(http.HandlerFunc(consultationHandler.GetAvailableSlots)))
+	mux.Handle("/consultoria/agendar", protect(http.HandlerFunc(consultationHandler.CreateBooking)))
 	if cfg.AppEnv == "development" {
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 	log.Println("Swagger disponível em /swagger/index.html")

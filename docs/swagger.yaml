@@ -26,6 +26,8 @@ definitions:
     properties:
       checkout_url:
         type: string
+      order_id:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -110,6 +112,31 @@ paths:
       summary: Lista horários livres para consultoria
       tags:
       - consultation
+  /pedidos/status:
+    get:
+      description: Usado pelo bot para saber se o pagamento já foi confirmado
+      parameters:
+      - description: ID do pedido
+        in: query
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: pedido não encontrado
+          schema:
+            type: string
+      summary: Consulta o status de um pedido
+      tags:
+      - payment
   /webhooks/stripe:
     post:
       consumes:

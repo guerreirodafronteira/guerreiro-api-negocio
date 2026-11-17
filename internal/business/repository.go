@@ -2,10 +2,16 @@ package business
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var ErrOrderNotFound = errors.New("pedido não encontrado")
 
 type Repository struct {
 	pool *pgxpool.Pool
@@ -20,6 +26,7 @@ type OrderDetails struct {
 	UserID         string
 	WhatsAppNumber string
 	Email          string
+	Name           string
 	ServiceSlug    string
 	ServiceName    string
 	Status string
@@ -101,22 +108,38 @@ func (r *Repository) UpdateUserContactInfo(ctx context.Context, orderID, email, 
 func (r *Repository) GetOrderDetails(ctx context.Context, orderID string) (*OrderDetails, error) {
 	var d OrderDetails
 	err := r.pool.QueryRow(ctx,
-		`SELECT u.id, u.whatsapp_number, COALESCE(u.email, ''), s.slug, s.name
+		`SELECT u.id,                              -- 1
+		        COALESCE(u.whatsapp_number, ''),   -- 2
+		        COALESCE(u.email, ''),             -- 3
+		        COALESCE(u.name, ''),              -- 4
+		        s.slug,                            -- 5
+		        s.name,                            -- 6
+		        o.status                           -- 7
 		 FROM orders o
 		 JOIN users u ON u.id = o.user_id
 		 JOIN services s ON s.id = o.service_id
 		 WHERE o.id = $1`,
 		orderID,
-	).Scan(&d.UserID, &d.WhatsAppNumber, &d.Email, &d.ServiceSlug, &d.ServiceName, &d.Status)
+	).Scan(&d.UserID, &d.WhatsAppNumber, &d.Email, &d.Name, &d.ServiceSlug, &d.ServiceName, &d.Status) // 7
+
 	if err != nil {
-		return nil, err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrOrderNotFound
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "22P02" {
+			return nil, ErrOrderNotFound
+		}
+		return nil, fmt.Errorf("erro ao buscar pedido: %w", err)
 	}
 	return &d, nil
 }
 
 func (r *Repository) CreateConsultation(ctx context.Context, orderID string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO consultations (order_id, status) VALUES ($1, 'aguardando_agendamento')`,
+		`INSERT INTO consultations (order_id, status)
+		 VALUES ($1, 'aguardando_agendamento')
+		 ON CONFLICT (order_id) DO NOTHING`,
 		orderID,
 	)
 	return err

@@ -12,15 +12,9 @@ type StripeClient struct {
 	priceIDByService map[string]string
 }
 
-func NewStripeClient(secretKey string, priceMigramovil, priceMigracion string) *StripeClient {
+func NewStripeClient(secretKey string, priceIDByService map[string]string) *StripeClient {
 	stripe.Key = secretKey
-
-	return &StripeClient{
-		priceIDByService: map[string]string{
-			"migramovil": priceMigramovil,
-			"migracion":  priceMigracion,
-		},
-	}
+	return &StripeClient{priceIDByService: priceIDByService}
 }
 
 // GetPriceAmountCents busca o valor do preço DIRETO na Stripe, em vez de

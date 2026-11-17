@@ -60,64 +60,66 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch event.Type {
 	case "checkout.session.completed":
-		var session stripe.CheckoutSession
-		if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
-			log.Printf("erro ao decodificar sessão: %v", err)
-			http.Error(w, "erro interno", http.StatusInternalServerError)
-			return
-		}
-
-		orderID := session.ClientReferenceID
-		if orderID == "" {
-		log.Printf("evento %s sem client_reference_id — ignorando (provavelmente evento de teste sintético)", event.ID)
-		w.WriteHeader(http.StatusOK) // responde OK mesmo assim, pra Stripe não ficar retentando
+	var session stripe.CheckoutSession
+	if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
+		log.Printf("erro ao decodificar sessão: %v", err)
+		http.Error(w, "erro interno", http.StatusInternalServerError)
 		return
-		}
-		paymentIntentID := ""
-		if session.PaymentIntent != nil {
-			paymentIntentID = session.PaymentIntent.ID
-		}
+	}
 
-		if err := h.repo.MarkOrderAsPaid(r.Context(), orderID, paymentIntentID); err != nil {
-			log.Printf("erro ao marcar pedido %s como pago: %v", orderID, err)
-			http.Error(w, "erro interno", http.StatusInternalServerError)
-			return
-		}
+	orderID := session.ClientReferenceID
+	if orderID == "" {
+		log.Printf("evento %s sem client_reference_id, ignorando", event.ID)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
-		log.Printf("pedido %s confirmado como pago", orderID)
+	paymentIntentID := ""
+	if session.PaymentIntent != nil {
+		paymentIntentID = session.PaymentIntent.ID
+	}
 
-		email := ""
-		name := ""
-		if session.CustomerDetails != nil {
-			email = session.CustomerDetails.Email
-			name = session.CustomerDetails.Name
-		}
+	if err := h.repo.MarkOrderAsPaid(r.Context(), orderID, paymentIntentID); err != nil {
+		log.Printf("erro ao marcar pedido %s como pago: %v", orderID, err)
+		http.Error(w, "erro interno", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("pedido %s confirmado como pago", orderID)
 
-		if email != "" || name != "" {
-			if err := h.repo.UpdateUserContactInfo(r.Context(), orderID, email, name); err != nil {
-				log.Printf("erro ao salvar dados do usuário: %v", err)
-			}
+	email, name := "", ""
+	if session.CustomerDetails != nil { // ponteiro: pode ser nil
+		email = session.CustomerDetails.Email
+		name = session.CustomerDetails.Name
+	}
+	if email != "" || name != "" {
+		if err := h.repo.UpdateUserContactInfo(r.Context(), orderID, email, name); err != nil {
+			log.Printf("erro ao salvar dados do usuário: %v", err)
 		}
+	}
 
-		details, err := h.repo.GetOrderDetails(r.Context(), orderID)
-			if err != nil {
-				log.Printf("erro ao buscar detalhes do pedido: %v", err)
-		} else {
-			if details.Email != "" {
-				html := notify.BuildPurchaseEmailHTML(details.ServiceName)
-				if err := h.emailClient.SendEmail(details.Email, "Pagamento confirmado!", html); err != nil {
-					log.Printf("erro ao enviar email: %v", err)
-				}
-			}
-			msg := notify.BuildPurchaseWhatsAppMessage(details.ServiceName)
-			_ = h.whatsapp.SendMessage(details.WhatsAppNumber, msg) // stub, sempre retorna nil
-		}
+	// A partir daqui TUDO depende de details. Se falhar, saímos na hora:
+	// nenhuma linha abaixo roda com details == nil.
+	details, err := h.repo.GetOrderDetails(r.Context(), orderID)
+	if err != nil {
+		log.Printf("erro ao buscar detalhes do pedido %s: %v", orderID, err)
+		http.Error(w, "erro interno", http.StatusInternalServerError) // a Stripe tenta de novo
+		return
+	}
 
-		if details.ServiceSlug == "consultoria" {
-			if err := h.repo.CreateConsultation(r.Context(), orderID); err != nil {
-				log.Printf("erro ao criar consultoria: %v", err)
-			}
+	if details.ServiceSlug == "consultoria" {
+		if err := h.repo.CreateConsultation(r.Context(), orderID); err != nil {
+			log.Printf("erro ao criar consultoria: %v", err)
 		}
+	}
+
+	if details.Email != "" {
+		html := notify.BuildPurchaseEmailHTML(details.ServiceName)
+		if err := h.emailClient.SendEmail(details.Email, "Pagamento confirmado!", html); err != nil {
+			log.Printf("erro ao enviar email: %v", err)
+		}
+	}
+	msg := notify.BuildPurchaseWhatsAppMessage(details.ServiceName)
+	_ = h.whatsapp.SendMessage(details.WhatsAppNumber, msg)
 
 	default:
 		// Não tratamos esse tipo de evento ainda — só logamos e respondemos OK,

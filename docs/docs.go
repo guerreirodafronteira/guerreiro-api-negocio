@@ -131,6 +131,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/pedidos/status": {
+            "get": {
+                "description": "Usado pelo bot para saber se o pagamento já foi confirmado",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Consulta o status de um pedido",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do pedido",
+                        "name": "order_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "pedido não encontrado",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/webhooks/stripe": {
             "post": {
                 "description": "Recebe eventos da Stripe (ex: checkout.session.completed) e atualiza o pedido correspondente",
@@ -206,6 +244,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "checkout_url": {
+                    "type": "string"
+                },
+                "order_id": {
                     "type": "string"
                 }
             }
