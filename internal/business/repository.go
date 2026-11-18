@@ -12,6 +12,7 @@ import (
 )
 
 var ErrOrderNotFound = errors.New("pedido não encontrado")
+var ErrConsultationNotFound = errors.New("consultoria não encontrada para esse booking")
 
 type Repository struct {
 	pool *pgxpool.Pool
@@ -168,27 +169,47 @@ func (r *Repository) GetConsultationByBookingUID(ctx context.Context, bookingUID
 }
 
 func (r *Repository) UpdateConsultationStatus(ctx context.Context, bookingUID, status string) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE consultations SET status = $1, updated_at = now() WHERE external_booking_id = $2`,
 		status, bookingUID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 { // o UPDATE "funcionou" mas não achou nenhuma linha
+		return ErrConsultationNotFound
+	}
+	return nil
 }
 
 func (r *Repository) MarkNoShowAndIncrement(ctx context.Context, bookingUID, status string) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE consultations
 		 SET status = $1, reschedule_count = reschedule_count + 1, updated_at = now()
 		 WHERE external_booking_id = $2`,
 		status, bookingUID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrConsultationNotFound
+	}
+	return nil
 }
 
-func (r *Repository) UpdateConsultationSchedule(ctx context.Context, bookingUID string, newTime time.Time) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE consultations SET scheduled_at = $1, status = 'agendado', updated_at = now() WHERE external_booking_id = $2`,
-		newTime, bookingUID,
+func (r *Repository) UpdateConsultationSchedule(ctx context.Context, currentUID, newUID string, newTime time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE consultations
+		 SET external_booking_id = $1, scheduled_at = $2, status = 'agendado', updated_at = now()
+		 WHERE external_booking_id = $3`,
+		newUID, newTime, currentUID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrConsultationNotFound
+	}
+	return nil
 }

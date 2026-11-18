@@ -5,9 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/guerreirodafronteira/guerreiro-api-negocio/internal/business"
@@ -29,6 +32,7 @@ type calcomPayload struct {
 		UID         string `json:"uid"`
 		CancelledBy string `json:"cancelledBy"`
 		StartTime   string `json:"startTime"`
+		RescheduleUID string `json:"rescheduleUid"`
 		Attendees   []struct {
 			Email  string `json:"email"`
 			NoShow bool   `json:"noShow"`
@@ -67,26 +71,32 @@ func (h *CalcomWebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	bookingUID := event.Payload.UID
 	ctx := r.Context()
 
+	log.Printf("webhook Cal.com: evento=%s uid=%s rescheduleUid=%s cancelledBy=%q",
+		event.TriggerEvent, bookingUID, event.Payload.RescheduleUID, event.Payload.CancelledBy)
+
+	var opErr error
 	switch event.TriggerEvent {
 	case "BOOKING_CANCELLED":
-		if event.Payload.CancelledBy == h.organizerEmail {
-			h.repo.UpdateConsultationStatus(ctx, bookingUID, "cancelado_pelo_consultor")
-		} else {
-			h.repo.UpdateConsultationStatus(ctx, bookingUID, "cancelado_pelo_cliente")
+		status := "cancelado_pelo_cliente"
+		// EqualFold ignora maiúsculas/minúsculas: emails não deveriam diferir por isso
+		if strings.EqualFold(event.Payload.CancelledBy, h.organizerEmail) {
+			status = "cancelado_pelo_consultor"
 		}
+		opErr = h.repo.UpdateConsultationStatus(ctx, bookingUID, status)
 
 	case "BOOKING_RESCHEDULED":
 		startTime, err := time.Parse(time.RFC3339, event.Payload.StartTime)
-		if err == nil {
-			h.repo.UpdateConsultationSchedule(ctx, bookingUID, startTime)
+		if err != nil {
+			opErr = fmt.Errorf("startTime inválido %q: %w", event.Payload.StartTime, err)
+			break
 		}
+		currentUID := event.Payload.RescheduleUID
+		if currentUID == "" {
+			currentUID = bookingUID
+		}
+		opErr = h.repo.UpdateConsultationSchedule(ctx, currentUID, bookingUID, startTime)
 
 	case "BOOKING_NO_SHOW_UPDATED":
-		// NOTA: ainda não testamos um payload real desse evento (webhook só
-		// será registrado de fato após o deploy) — a lógica abaixo assume
-		// que o array "attendees" identifica quem faltou; se o cliente faltou,
-		// conta como remarcação (política de 2 grátis); se foi o Guerreiro
-		// (ausência do organizador), não penaliza o cliente.
 		clientNoShow := false
 		for _, a := range event.Payload.Attendees {
 			if a.NoShow {
@@ -94,14 +104,22 @@ func (h *CalcomWebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		if clientNoShow {
-			h.repo.MarkNoShowAndIncrement(ctx, bookingUID, "no_show_cliente")
+			opErr = h.repo.MarkNoShowAndIncrement(ctx, bookingUID, "no_show_cliente")
 		} else {
-			h.repo.UpdateConsultationStatus(ctx, bookingUID, "no_show_consultor")
+			opErr = h.repo.UpdateConsultationStatus(ctx, bookingUID, "no_show_consultor")
 		}
 
 	default:
 		log.Printf("evento Cal.com ignorado: %s", event.TriggerEvent)
 	}
 
+	if opErr != nil {
+		log.Printf("erro ao processar %s (uid=%s): %v", event.TriggerEvent, bookingUID, opErr)
+		// "Não achei essa consultoria" não se resolve com reenvio; falha de banco sim.
+		if !errors.Is(opErr, business.ErrConsultationNotFound) {
+			http.Error(w, "erro interno", http.StatusInternalServerError)
+			return
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 }

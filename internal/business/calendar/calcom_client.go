@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -84,7 +86,7 @@ func (c *CalcomClient) GetAvailableSlots(start, end time.Time) ([]time.Time, err
 
 type createBookingRequest struct {
 	Start       string           `json:"start"`
-	EventTypeID string           `json:"eventTypeId"`
+	EventTypeID int           `json:"eventTypeId"`
 	Attendee    bookingAttendee  `json:"attendee"`
 }
 
@@ -106,9 +108,19 @@ type createBookingResponse struct {
 // cliente como participante. Retorna o UID da reserva no Cal.com — é esse
 // UID que vamos guardar em consultations.external_booking_id.
 func (c *CalcomClient) CreateBooking(start time.Time, attendeeName, attendeeEmail string) (string, error) {
+	// O ID vem do .env como texto; a API quer número. Atoi = "ASCII to integer"
+	// (o int.Parse do C#). Se o valor do .env for inválido, falhamos aqui com uma
+	// mensagem clara, em vez de deixar o Cal.com devolver um 400 genérico.
+	eventTypeID, err := strconv.Atoi(c.eventTypeID)
+	if err != nil {
+		return "", fmt.Errorf("CALCOM_EVENT_TYPE_ID inválido (%q): precisa ser um número", c.eventTypeID)
+	}
+
 	payload := createBookingRequest{
-		Start:       start.Format(time.RFC3339),
-		EventTypeID: c.eventTypeID,
+		// A API exige o horário em UTC. .UTC() converte antes de formatar,
+		// caso o start_iso tenha chegado com outro fuso (ex: -03:00).
+		Start:       start.UTC().Format(time.RFC3339),
+		EventTypeID: eventTypeID,
 		Attendee: bookingAttendee{
 			Name:     attendeeName,
 			Email:    attendeeEmail,
@@ -127,7 +139,7 @@ func (c *CalcomClient) CreateBooking(start time.Time, attendeeName, attendeeEmai
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("cal-api-version", "2024-08-13") // versão específica desse endpoint (diferente da de slots!)
+	req.Header.Set("cal-api-version", "2024-08-13")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -136,7 +148,10 @@ func (c *CalcomClient) CreateBooking(start time.Time, attendeeName, attendeeEmai
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return "", fmt.Errorf("cal.com retornou status %d ao criar reserva", resp.StatusCode)
+		// A causa real do erro está no corpo da resposta. Lemos no máximo 2KB
+		// (LimitReader) pra um corpo gigante não encher o log.
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return "", fmt.Errorf("cal.com retornou status %d ao criar reserva: %s", resp.StatusCode, string(errBody))
 	}
 
 	var parsed createBookingResponse

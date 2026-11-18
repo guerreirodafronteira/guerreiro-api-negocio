@@ -106,7 +106,11 @@ func (h *ConsultationHandler) CreateBooking(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	attendeeName := details.UserID // fallback simples
+	attendeeName := details.Name // fallback simples
+	if attendeeName == "" {
+	attendeeName = details.Email
+	}
+	
 	if details.Email == "" {
 		http.Error(w, "cliente ainda não tem email cadastrado", http.StatusBadRequest)
 		return
