@@ -59,19 +59,29 @@ func (h *ConsultationHandler) GetAvailableSlots(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	loc, _ := time.LoadLocation("America/Asuncion") // ajusta se o fuso for outro
+	loc, err := time.LoadLocation("America/Asuncion")
+	if err != nil {
+		log.Printf("fuso horário indisponível, usando UTC: %v", err)
+		loc = time.UTC
+	}
+
+	const maxOptions = 9
+	if len(slots) > maxOptions {
+		slots = slots[:maxOptions]
+	}
 
 	options := make([]slotOption, 0, len(slots))
+	labels := make([]string, 0, len(slots))
+	values := make([]string, 0, len(slots))
 	for _, s := range slots {
-		local := s.In(loc)
-		options = append(options, slotOption{
-			StartISO: s.Format(time.RFC3339),
-			Label:    local.Format("02/01 15:04"),
-		})
+		opt := slotOption{StartISO: s.Format(time.RFC3339), Label: s.In(loc).Format("02/01 15:04")}
+		options = append(options, opt)
+		labels = append(labels, opt.Label)
+		values = append(values, opt.StartISO)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"slots": options})
+	json.NewEncoder(w).Encode(map[string]any{"slots": options, "labels": labels, "values": values})
 }
 
 type scheduleRequest struct {
@@ -129,9 +139,14 @@ func (h *ConsultationHandler) CreateBooking(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	loc, err := time.LoadLocation("America/Asuncion")
+	if err != nil {
+		loc = time.UTC
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":    "agendado",
 		"start_iso": req.StartISO,
+		"label":     startTime.In(loc).Format("02/01 às 15:04"),
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	_ "time/tzdata"
 
 	_ "github.com/guerreirodafronteira/guerreiro-api-negocio/docs"
 	"github.com/jackc/pgx/v5/pgxpool"
